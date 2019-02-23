@@ -323,7 +323,7 @@ namespace Microsoft.AspNetCore.Authentication
         }
 
         [Fact]
-        public void AddAzureADBearer_RegisteringAddCookiesAndAddOpenIdConnectHasNoImpactOnAzureAAExtensions()
+        public void AddAzureADBearer_RegisteringJwtBearerHasNoImpactOnAzureAAExtensions()
         {
             // Arrange
             var services = new ServiceCollection();
