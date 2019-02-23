@@ -135,6 +135,52 @@ namespace Microsoft.AspNetCore.Authentication
         }
 
         [Fact]
+        public void AddAzureADB2C_RegisteringAddCookiesAndAddOpenIdConnectHasNoImpactOnAzureAAExtensions()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            services.AddSingleton<ILoggerFactory>(new NullLoggerFactory());
+
+            // Act
+            services.AddAuthentication()
+                .AddCookie()
+                .AddOpenIdConnect()
+                .AddAzureADB2C(o =>
+                {
+                    o.Instance = "https://login.microsoftonline.com";
+                    o.ClientId = "ClientId";
+                    o.ClientSecret = "ClientSecret";
+                    o.CallbackPath = "/signin-oidc";
+                    o.Domain = "domain.onmicrosoft.com";
+                });
+
+            services.Configure<OpenIdConnectOptions>(AzureADB2CDefaults.OpenIdScheme, o =>
+            {
+                o.Authority = "https://overriden.com";
+            });
+
+            services.Configure<CookieAuthenticationOptions>(AzureADB2CDefaults.CookieScheme, o =>
+            {
+                o.AccessDeniedPath = "/Overriden";
+            });
+
+            var provider = services.BuildServiceProvider();
+
+            // Assert
+            var openIdOptionsMonitor = provider.GetService<IOptionsMonitor<OpenIdConnectOptions>>();
+            Assert.NotNull(openIdOptionsMonitor);
+            var openIdOptions = openIdOptionsMonitor.Get(AzureADB2CDefaults.OpenIdScheme);
+            Assert.Equal("ClientId", openIdOptions.ClientId);
+            Assert.Equal($"https://overriden.com", openIdOptions.Authority);
+
+            var cookieAuthenticationOptionsMonitor = provider.GetService<IOptionsMonitor<CookieAuthenticationOptions>>();
+            Assert.NotNull(cookieAuthenticationOptionsMonitor);
+            var cookieAuthenticationOptions = cookieAuthenticationOptionsMonitor.Get(AzureADB2CDefaults.CookieScheme);
+            Assert.Equal("/AzureADB2C/Account/SignIn/AzureADB2C", cookieAuthenticationOptions.LoginPath);
+            Assert.Equal("/Overriden", cookieAuthenticationOptions.AccessDeniedPath);
+        }
+
+        [Fact]
         public void AddAzureADB2C_ThrowsForDuplicatedSchemes()
         {
             // Arrange
@@ -265,6 +311,40 @@ namespace Microsoft.AspNetCore.Authentication
 
             // Act
             services.AddAuthentication()
+                .AddAzureADB2CBearer(o =>
+                {
+                    o.Instance = "https://login.microsoftonline.com/";
+                    o.ClientId = "ClientId";
+                    o.CallbackPath = "/signin-oidc";
+                    o.Domain = "domain.onmicrosoft.com";
+                    o.SignUpSignInPolicyId = "B2C_1_SiUpIn";
+                });
+
+            services.Configure<JwtBearerOptions>(AzureADB2CDefaults.JwtBearerAuthenticationScheme, o =>
+            {
+                o.Audience = "http://overriden.com";
+            });
+
+            var provider = services.BuildServiceProvider();
+
+            // Assert
+            var bearerOptionsMonitor = provider.GetService<IOptionsMonitor<JwtBearerOptions>>();
+            Assert.NotNull(bearerOptionsMonitor);
+            var bearerOptions = bearerOptionsMonitor.Get(AzureADB2CDefaults.JwtBearerAuthenticationScheme);
+            Assert.Equal("https://login.microsoftonline.com/domain.onmicrosoft.com/B2C_1_SiUpIn/v2.0", bearerOptions.Authority);
+            Assert.Equal("http://overriden.com", bearerOptions.Audience);
+        }
+
+        [Fact]
+        public void AddAzureADB2CBearer_RegisteringAddCookiesAndAddOpenIdConnectHasNoImpactOnAzureAAExtensions()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            services.AddSingleton<ILoggerFactory>(new NullLoggerFactory());
+
+            // Act
+            services.AddAuthentication()
+                .AddJwtBearer()
                 .AddAzureADB2CBearer(o =>
                 {
                     o.Instance = "https://login.microsoftonline.com/";
